@@ -4,6 +4,11 @@
   Sito web: http://www.lombardoandrea.com  
 */
 
+/*
+  Alterations by Brenton Moodley:
+  1) Enable pins changed from using uint8_t (8bit) to uint16_t in order to support 10bit PWM as found in ESP8266
+*/
+
 #include "L298NX2.h"
 #include "L298N.h"
 
@@ -11,10 +16,10 @@
 
 typedef void (*CallBackFunction)();
 
-L298NX2::L298NX2(uint16_t pinEnable_A,
+L298NX2::L298NX2(uint16_t pinEnable_A, // see comment at top #1
                  uint8_t pinIN1_A,
                  uint8_t pinIN2_A,
-                 uint16_t pinEnable_B,
+                 uint16_t pinEnable_B, // see comment at top #1
                  uint8_t pinIN1_B,
                  uint8_t pinIN2_B) : _motorA(pinEnable_A,
                                              pinIN1_A,

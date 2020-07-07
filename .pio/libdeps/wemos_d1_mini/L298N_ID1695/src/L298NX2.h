@@ -1,3 +1,8 @@
+/*
+  Alterations by Brenton Moodley:
+  1) Enable pins changed from using uint8_t (8bit) to uint16_t in order to support 10bit PWM as found in ESP8266
+*/
+
 #ifndef L298NX2_h
 #define L298NX2_h
 
@@ -10,10 +15,10 @@ class L298NX2
 {
 public:
    L298NX2(
-       uint16_t pinEnable_A,
+       uint16_t pinEnable_A, // see comment at top #1
        uint8_t pinIN1_A,
        uint8_t pinIN2_A,
-       uint16_t pinEnable_B,
+       uint16_t pinEnable_B, // see comment at top #1
        uint8_t pinIN1_B,
        uint8_t pinIN2_B);
    L298NX2(uint8_t pinIN1_A,
