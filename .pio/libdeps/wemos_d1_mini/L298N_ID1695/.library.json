@@ -1,0 +1,55 @@
+{
+    "description": "L298N library for Arduino", 
+    "repository": {
+        "url": "https://github.com/AndreaLombardo/L298N", 
+        "type": "git"
+    }, 
+    "platforms": [
+        "atmelavr", 
+        "atmelmegaavr", 
+        "atmelsam", 
+        "espressif32", 
+        "espressif8266", 
+        "gd32v", 
+        "infineonxmc", 
+        "intel_arc32", 
+        "kendryte210", 
+        "microchippic32", 
+        "nordicnrf51", 
+        "nordicnrf52", 
+        "ststm32", 
+        "ststm8", 
+        "teensy", 
+        "timsp430"
+    ], 
+    "export": {
+        "exclude": [
+            "extras", 
+            "docs", 
+            "tests", 
+            "test", 
+            "*.doxyfile", 
+            "*.pdf"
+        ], 
+        "include": null
+    }, 
+    "authors": [
+        {
+            "maintainer": true, 
+            "name": "Andrea Lombardo", 
+            "url": null, 
+            "email": null
+        }
+    ], 
+    "keywords": [
+        "device", 
+        "control"
+    ], 
+    "id": 1695, 
+    "name": "L298N", 
+    "frameworks": [
+        "arduino"
+    ], 
+    "version": "2.0.1", 
+    "homepage": null
+}
