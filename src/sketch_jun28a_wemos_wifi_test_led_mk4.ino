@@ -1,16 +1,12 @@
-//This example will use a static IP to control the switching of a relay. Over LAN using a web browser. 
-//A lot of this code have been resued from the example on the ESP8266 Learning Webpage below. 
-//http://www.esp8266learning.com/wemos-webserver-example.php
-
 //CODE START 
 #include <Arduino.h>
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
 #include <L298NX2.h>
-#include <myWiFiCredentials.h> // separate header containing my own WiFi credentials. Add this file yourself or comment this line out.
+#include <secrets.h> // separate header containing my own WiFi credentials.
 
 // DEBUG
-// #define DEBUG_ON
+// #define DEBUG_ON // comment to disable serial output and loop delay
 
 // WiFi network information
 const char* ssid = mySSID;         // WiFi name (wemos will only connect to 2.4GHz network)
@@ -34,7 +30,10 @@ const uint8_t MOTORS_B = 1; // driving backward
 const uint8_t MOTORS_TL = 2; // turning left
 const uint8_t MOTORS_TR = 3; // turning right
 const uint8_t MOTORS_S = 4; // stopped
-uint8_t STATE = 4; // current state
+uint8_t STATE = MOTORS_S; // current state (initalized to MOTOS_S for STOP)
+
+// Flags
+bool isStopped = true;
 
 // Intervals
 // unsigned long turnStartTime = 0;
@@ -75,7 +74,7 @@ void setup() {
 //void loop is where you put all your code. it is a funtion that returns nothing and will repeat over and over again
 void loop() {
   #ifdef DEBUG_ON
-  delay(1000);
+  delay(500);
   #endif
 
   currentMillis = millis();
@@ -89,6 +88,9 @@ void loop() {
 }
 
 void motorManager() {
+  if (STATE != MOTORS_S) {
+    isStopped = false;
+  } 
   switch(STATE){
     case MOTORS_F :
       Serial.println("mmF");
@@ -100,7 +102,9 @@ void motorManager() {
       break;
     case MOTORS_S :
       Serial.println("mmS");
-      mStop();
+      if (!isStopped) {
+        mStop();
+      }
       break;
     case MOTORS_TL :
       Serial.println("mmTL");
@@ -111,12 +115,13 @@ void motorManager() {
       mRight();
       break;
   };
-  if (!motors.isMovingA()) {
-    Serial.println("!mov");
-    motors.reset();
-    motors.setSpeed(PWMSpeed);
-    STATE = MOTORS_S;
-  }
+  // if (!motors.isMovingA() && !isReset) {
+  //   Serial.println("!mov");
+  //   motors.reset();
+  //   motors.setSpeed(PWMSpeed);
+  //   STATE = MOTORS_S;
+  //   isReset = true;
+  // }
 }
 
 void initMotors() {
@@ -126,38 +131,43 @@ void initMotors() {
 }
 
 void mForward() {
-  motors.forwardFor(3000, reset);// forwardFor(3000);
   Serial.println("mF");
+  notReset();
+  motors.forwardFor(3000, mStop);// forwardFor(3000);
 }
 
 void mBackward() {
-  motors.backwardFor(1000);
   Serial.println("mB");
+  notReset();
+  motors.backwardFor(1000, mStop);
 }
 
 void mStop() {
-  // motors.forwardFor(0);
-  // motors.backwardFor(0);
-  motors.stop();
   Serial.println("mS");
+  motors.stop();
+  // motors.forwardFor(0);
+  motors.reset();
+  motors.setSpeed(PWMSpeed);
+  isStopped = true;
+  STATE = MOTORS_S;
 }
 
 void mLeft() {
-  motors.forwardForA(turnIntervalTime);
-  motors.backwardForB(turnIntervalTime);
   Serial.println("mL");
+  notReset();
+  motors.forwardForB(turnIntervalTime);
+  motors.backwardForA(turnIntervalTime, mStop);
 }
 
 void mRight() {
-  motors.backwardForA(turnIntervalTime);
-  motors.forwardForB(turnIntervalTime);
   Serial.println("mR");
+  notReset();
+  motors.backwardForB(turnIntervalTime);
+  motors.forwardForA(turnIntervalTime, mStop);
 }
 
-void reset() {
-  motors.reset();
-  motors.setSpeed(PWMSpeed);
-  Serial.println("rst");
+void notReset() {
+  isStopped = false;
 }
 
 void setMotorStateF() {STATE = MOTORS_F; };
