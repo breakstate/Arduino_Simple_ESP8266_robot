@@ -1,0 +1,5 @@
+UPDATE HISTORY
+
+--- 2020/07/08 ---
+HW: changed gnd and 5v connections between wemos and motor-controller from m/m jumpers to short dupont f/m cables
+SW: added OTA update functionality 
