@@ -1,12 +1,13 @@
 //CODE START 
 #include <Arduino.h>
+#include <ArduinoOTA.h>
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
 #include <L298NX2.h>
 #include <secrets.h> // separate header containing my own WiFi credentials.
 
 // DEBUG
-// #define DEBUG_ON // comment to disable serial output and loop delay
+//#define DEBUG_ON // comment to disable serial output and loop delay
 
 // WiFi network information
 const char* ssid = mySSID;         // WiFi name (wemos will only connect to 2.4GHz network)
@@ -66,6 +67,8 @@ void setup() {
 
   initMotors();
 
+  initOTA();
+
   initWifi();
 
   initHTTP();
@@ -76,15 +79,15 @@ void loop() {
   #ifdef DEBUG_ON
   delay(500);
   #endif
-
   currentMillis = millis();
+
+  ArduinoOTA.handle();
   server.handleClient();
+  motorManager();
+
   // if (WiFi.status() != WL_CONNECTED) {
   //   mStop();
   // }
-  motorManager();
-
-
 }
 
 void motorManager() {
@@ -262,4 +265,29 @@ void initHTTP() {
   Serial.print("http://");
   Serial.print(WiFi.localIP());
   Serial.println("/"); 
+}
+
+void initOTA() {
+  ArduinoOTA.setHostname("ESP8266");
+  ArduinoOTA.setPassword("esp8266");
+
+  ArduinoOTA.onStart([]() {
+    Serial.println("OTA strt");
+  });
+  ArduinoOTA.onEnd([]() {
+    Serial.println("OTA end");
+  });
+  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
+    Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
+  });
+    ArduinoOTA.onError([](ota_error_t error) {
+    Serial.printf("Error[%u]: ", error);
+    if (error == OTA_AUTH_ERROR) Serial.println("OTA Auth Fail");
+    else if (error == OTA_BEGIN_ERROR) Serial.println("OTA Begin Fail");
+    else if (error == OTA_CONNECT_ERROR) Serial.println("OTA Connect Fail");
+    else if (error == OTA_RECEIVE_ERROR) Serial.println("OTA Receive Fail");
+    else if (error == OTA_END_ERROR) Serial.println("OTA End Failed");
+  });
+  ArduinoOTA.begin();
+  Serial.println("OTA ready");
 }
