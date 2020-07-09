@@ -8,8 +8,8 @@
 #include <secrets.h> // separate header containing my own WiFi credentials.
 
 // DEBUG
-#define DEBUG_ON // comment to disable serial output and loop delay
-#define STEP_ON 
+//#define DEBUG_ON // comment to disable serial output and loop delay
+//#define STEP_ON 
 const uint16_t STEP_DELAY = 500;
 
 // WiFi network information
@@ -160,29 +160,29 @@ void setMotorStateL() {STATE = MOTORS_TL; };
 void setMotorStateR() {STATE = MOTORS_TR; };
 void setMotorStateS() {STATE = MOTORS_S; };
 
-void handleRoot() {
-  home();
-}
+// void handleRoot() {
+//   home();
+// }
 
 void handleF() {
   setMotorStateF();
-  home();
+  handleFileRead("/");
 }
 void handleB() {
   setMotorStateB();
-  home();
+  handleFileRead("/");
 }
 void handleL() {
   setMotorStateL();
-  home();
+  handleFileRead("/");
 }
 void handleR() {
   setMotorStateR();
-  home();
+  handleFileRead("/");
 }
 void handleS() {
   setMotorStateS();
-  home();
+  handleFileRead("/");
 }
 
 void home() {
@@ -281,7 +281,7 @@ void initSPIFFS() {
 }
 
 void initHTTP() {
-  server.on("/", handleRoot);
+  // server.on("/", handleRoot);
   server.on("/F", handleF);
   server.on("/B", handleB);
   server.on("/L", handleL);
