@@ -46,6 +46,7 @@ IPAddress subnet(255, 255, 255, 0); // set subnet mask to match network
 // Instantiate motor library object with motor constants
 L298NX2 motors(ENA, IN1, IN2, ENB, IN3, IN4);
 
+File fsUploadFile;
 bool ledState = LOW;
 bool isStopped = true;
 unsigned long previousMillis = 0;
@@ -225,6 +226,29 @@ bool handleFileRead(String path){  // send the right file to the client (if it e
   return false;                                          // If the file doesn't exist, return false
 }
 
+void handleFileUpload(){ // upload a new file to the SPIFFS
+  HTTPUpload& upload = server.upload();
+  if(upload.status == UPLOAD_FILE_START){
+    String filename = upload.filename;
+    if(!filename.startsWith("/")) filename = "/"+filename;
+    Serial.print("handleFileUpload Name: "); Serial.println(filename);
+    fsUploadFile = SPIFFS.open(filename, "w");            // Open the file for writing in SPIFFS (create if it doesn't exist)
+    filename = String();
+  } else if(upload.status == UPLOAD_FILE_WRITE){
+    if(fsUploadFile)
+      fsUploadFile.write(upload.buf, upload.currentSize); // Write the received bytes to the file
+  } else if(upload.status == UPLOAD_FILE_END){
+    if(fsUploadFile) {                                    // If the file was successfully created
+      fsUploadFile.close();                               // Close the file again
+      Serial.print("handleFileUpload Size: "); Serial.println(upload.totalSize);
+      server.sendHeader("Location","/success.html");      // Redirect the client to the success page
+      server.send(303);
+    } else {
+      server.send(500, "text/plain", "500: couldn't create file");
+    }
+  }
+}
+
 /*
   _____   _   _   _____   _______ 
  |_   _| | \ | | |_   _| |__   __|
@@ -263,6 +287,16 @@ void initHTTP() {
   server.on("/L", handleL);
   server.on("/R", handleR);
   server.on("/S", handleS);
+
+  server.on("/upload", HTTP_GET, []() {
+    if (!handleFileRead("/upload.html"))                // send it if it exists
+      server.send(404, "text/plain", "404: Not Found"); // otherwise, respond with a 404 (Not Found) error
+  });
+
+  server.on("/upload", HTTP_POST,                       // if the client posts to the upload page
+    [](){ server.send(200); },                          // Send status 200 (OK) to tell the client we are ready to receive
+    handleFileUpload                                    // Receive and save the file
+  );
 
   server.onNotFound([]() { // send requested uri else 404
     if (!handleFileRead(server.uri())) {
