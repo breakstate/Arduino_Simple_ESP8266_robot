@@ -3,11 +3,14 @@
 #include <ArduinoOTA.h>
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
+#include <FS.h>
 #include <L298NX2.h>
 #include <secrets.h> // separate header containing my own WiFi credentials.
 
 // DEBUG
-//#define DEBUG_ON // comment to disable serial output and loop delay
+#define DEBUG_ON // comment to disable serial output and loop delay
+#define STEP_ON 
+const uint16_t STEP_DELAY = 500;
 
 // WiFi network information
 const char* ssid = mySSID;         // WiFi name (wemos will only connect to 2.4GHz network)
@@ -20,10 +23,7 @@ const int IN4 = D7; // red
 const int ENA = D3; // yellow
 const int IN1 = D2; // green
 const int IN2 = D1; // blue
-const unsigned short PWMSpeed = 600;
-
-// Instantiate motor library object with motor constants
-L298NX2 motors(ENA, IN1, IN2, ENB, IN3, IN4);
+const unsigned short PWMSpeed = 600; // of possible max 1023 due to 10bit PWM on wemos d1 mini
 
 // Motor states
 const uint8_t MOTORS_F = 0; // driving forward 
@@ -33,52 +33,39 @@ const uint8_t MOTORS_TR = 3; // turning right
 const uint8_t MOTORS_S = 4; // stopped
 uint8_t STATE = MOTORS_S; // current state (initalized to MOTOS_S for STOP)
 
-// Flags
-bool isStopped = true;
-
 // Intervals
-// unsigned long turnStartTime = 0;
-// unsigned long driveStartTime = 0;
-unsigned long driveIntervalTime = 3000; // default drive time
-unsigned long turnIntervalTime = 225;   // default turn time
-unsigned long previousMillis = 0;
-unsigned long currentMillis = 0;
+const uint16_t driveIntervalTime = 3000; // default drive time
+const uint16_t turnIntervalTime = 225;   // default turn time
 
-// Setting up the http server
-// WiFiServer server(81);
+// Setting up the http servers
 ESP8266WebServer server(81);
 IPAddress ip(192, 168, 0, 99); // desired IP address on network
 IPAddress gateway(192, 168, 1, 1); // set gateway to match network
 IPAddress subnet(255, 255, 255, 0); // set subnet mask to match network
 
-  bool ledState = LOW;
+// Instantiate motor library object with motor constants
+L298NX2 motors(ENA, IN1, IN2, ENB, IN3, IN4);
 
+bool ledState = LOW;
+bool isStopped = true;
+unsigned long previousMillis = 0;
+unsigned long currentMillis = 0;
 
 // void setup is where we initialize variables, pin modes, start using libraries, etc. 
 //The setup function will only run once, after each powerup or reset of the wemos board.
 void setup() {
-  #ifdef DEBUG_ON
-  Serial.begin(115200);
-  #endif
-
-  pinMode(LED_BUILTIN, OUTPUT);
-
-  delay(1000);
-
+  initDebug();
+  initLED();
   initMotors();
-
-  initOTA();
-
-  initWifi();
-
+  initSPIFFS();
   initHTTP();
+  initWifi();
+  initOTA();
 }
 
 //void loop is where you put all your code. it is a funtion that returns nothing and will repeat over and over again
 void loop() {
-  #ifdef DEBUG_ON
-  delay(500);
-  #endif
+  StepDebug();
   currentMillis = millis();
 
   ArduinoOTA.handle();
@@ -118,20 +105,13 @@ void motorManager() {
       mRight();
       break;
   };
-  // if (!motors.isMovingA() && !isReset) {
-  //   Serial.println("!mov");
-  //   motors.reset();
-  //   motors.setSpeed(PWMSpeed);
-  //   STATE = MOTORS_S;
-  //   isReset = true;
-  // }
+
 }
 
-void initMotors() {
-  motors.stop();
-  motors.setSpeed(PWMSpeed);
-  delay(50);
-}
+
+
+
+
 
 void mForward() {
   Serial.println("mF");
@@ -210,43 +190,70 @@ void home() {
   //delay?
 }
 
-void initWifi() {
-    // assigned IP address
-  Serial.print(F("Setting static ip to : "));
-  Serial.println(ip);
-  
-  // Connect to WiFi network
-  Serial.println();
-  Serial.println();
-  Serial.print("Connecting to ");
-  Serial.println(ssid);
-  WiFi.mode(WIFI_STA);
-  WiFi.config(ip, gateway, subnet); 
-  WiFi.begin(ssid, password);
-  //Trying to connect it will display dots
-  bool ledState = LOW;
+void StepDebug() {
+  #ifdef STEP_ON
+  delay(STEP_DELAY);
+  #endif
+}
 
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
-    unsigned long currentMillis = millis();
-    if (currentMillis - previousMillis >= 500) {
-      // save the last time you blinked the LED
-      previousMillis = currentMillis;
+String getContentType(String filename) { // convert the file extension to the MIME type
+  if (filename.endsWith(".html")) return "text/html";
+  else if (filename.endsWith(".css")) return "text/css";
+  else if (filename.endsWith(".js")) return "application/javascript";
+  else if (filename.endsWith(".ico")) return "image/x-icon";
+  else if (filename.endsWith(".txt")) return "text/txt";
+  else if(filename.endsWith(".gz")) return "application/x-gzip";
+  return "text/plain";
+}
 
-      // if the LED is off turn it on and vice-versa:
-      if (ledState == LOW) {
-        ledState = HIGH;
-      } else {
-        ledState = LOW;
-      }
-      // set the LED with the ledState of the variable:
-      digitalWrite(LED_BUILTIN, ledState);
-    }
+bool handleFileRead(String path){  // send the right file to the client (if it exists)
+  Serial.println("handleFileRead: " + path);
+  if(path.endsWith("/")) path += "index.html";           // If a folder is requested, send the index file
+  String contentType = getContentType(path);             // Get the MIME type
+  String pathWithGz = path + ".gz";
+  if(SPIFFS.exists(pathWithGz) || SPIFFS.exists(path)){  // If the file exists, either as a compressed archive, or normal
+    if(SPIFFS.exists(pathWithGz)) {                          // If there's a compressed version available
+      path += ".gz";
+    }                                                      // Use the compressed version
+    File file = SPIFFS.open(path, "r");                    // Open the file
+    size_t sent = server.streamFile(file, contentType);    // Send it to the client
+    file.close();                                          // Close the file again
+    Serial.println(String("\tSent file: ") + path);
+    return true;
   }
-  digitalWrite(LED_BUILTIN, HIGH);
-  Serial.println("");
-  Serial.println("WiFi connected");
+  Serial.println(String("\tFile Not Found: ") + path);
+  return false;                                          // If the file doesn't exist, return false
+}
+
+/*
+  _____   _   _   _____   _______ 
+ |_   _| | \ | | |_   _| |__   __|
+   | |   |  \| |   | |      | |   
+   | |   | . ` |   | |      | |   
+  _| |_  | |\  |  _| |_     | |   
+ |_____| |_| \_| |_____|    |_|   
+
+*/
+
+void initDebug() {
+  #ifdef DEBUG_ON
+  Serial.begin(115200);
+  #endif
+}
+
+void initLED() {
+  pinMode(LED_BUILTIN, OUTPUT);
+}
+
+void initMotors() {
+  motors.stop();
+  motors.setSpeed(PWMSpeed);
+  delay(50);
+}
+
+void initSPIFFS() {
+  SPIFFS.begin();
+  Serial.println("SPIFFS strt");
 }
 
 void initHTTP() {
@@ -256,15 +263,53 @@ void initHTTP() {
   server.on("/L", handleL);
   server.on("/R", handleR);
   server.on("/S", handleS);
-    // Start the server
-  server.begin();
+
+  server.onNotFound([]() { // send requested uri else 404
+    if (!handleFileRead(server.uri())) {
+      server.send(404, "text/plain", "404: Not found");
+    }
+  });
+  server.begin(); // Start the server
   Serial.println("Server started");
- 
-  // Print the IP address
   Serial.print("Use this URL : ");
   Serial.print("http://");
-  Serial.print(WiFi.localIP());
+  Serial.print(WiFi.localIP()); // Print the IP address
   Serial.println("/"); 
+}
+
+void initWifi() {
+  Serial.print(F("Setting static ip to : "));
+  Serial.println(ip); // Assigned IP address
+  
+  Serial.println();
+  Serial.println();
+  Serial.print("Connecting to ");
+  Serial.println(ssid);
+  WiFi.mode(WIFI_STA);
+  WiFi.config(ip, gateway, subnet); 
+  WiFi.begin(ssid, password); // Connect to WiFi network
+
+  bool ledState = LOW;
+
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print("."); // displays dots while trying to connect
+    unsigned long currentMillis = millis();
+
+    if (currentMillis - previousMillis >= 500) { // Blink LED while connecting
+      previousMillis = currentMillis;
+      if (ledState == LOW) {
+        ledState = HIGH;
+      } else {
+        ledState = LOW;
+      }
+      digitalWrite(LED_BUILTIN, ledState);
+    }
+
+  }
+  digitalWrite(LED_BUILTIN, HIGH);
+  Serial.println("");
+  Serial.println("WiFi connected");
 }
 
 void initOTA() {
@@ -291,3 +336,17 @@ void initOTA() {
   ArduinoOTA.begin();
   Serial.println("OTA ready");
 }
+
+/* 
+** Init end ===================================================================
+*/
+
+/*
+  ______   _   _   _____  
+ |  ____| | \ | | |  __ \ 
+ | |__    |  \| | | |  | |
+ |  __|   | . ` | | |  | |
+ | |____  | |\  | | |__| |
+ |______| |_| \_| |_____/ 
+
+*/                       
