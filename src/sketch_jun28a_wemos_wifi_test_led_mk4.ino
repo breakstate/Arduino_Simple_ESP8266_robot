@@ -3,6 +3,7 @@
 #include <ArduinoOTA.h>
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
+#include <WebSocketsServer.h>
 #include <FS.h>
 #include <L298NX2.h>
 #include <secrets.h> // separate header containing my own WiFi credentials.
@@ -38,6 +39,7 @@ const uint16_t driveIntervalTime = 3000; // default drive time
 const uint16_t turnIntervalTime = 225;   // default turn time
 
 // Setting up the http servers
+WebSocketsServer webSocket(82);
 ESP8266WebServer server(81);
 IPAddress ip(192, 168, 0, 99); // desired IP address on network
 IPAddress gateway(192, 168, 1, 1); // set gateway to match network
@@ -59,6 +61,7 @@ void setup() {
   initLED();
   initMotors();
   initSPIFFS();
+  initWebSocket();
   initHTTP();
   initWifi();
   initOTA();
@@ -69,6 +72,7 @@ void loop() {
   StepDebug();
   currentMillis = millis();
 
+  webSocket.loop();
   ArduinoOTA.handle();
   server.handleClient();
   motorManager();
@@ -154,36 +158,36 @@ void notReset() {
   isStopped = false;
 }
 
-void setMotorStateF() {STATE = MOTORS_F; };
-void setMotorStateB() {STATE = MOTORS_B; };
-void setMotorStateL() {STATE = MOTORS_TL; };
-void setMotorStateR() {STATE = MOTORS_TR; };
-void setMotorStateS() {STATE = MOTORS_S; };
+// void setMotorStateF() {STATE = MOTORS_F; };
+// void setMotorStateB() {STATE = MOTORS_B; };
+// void setMotorStateL() {STATE = MOTORS_TL; };
+// void setMotorStateR() {STATE = MOTORS_TR; };
+// void setMotorStateS() {STATE = MOTORS_S; };
 
 // void handleRoot() {
 //   home();
 // }
 
-void handleF() {
-  setMotorStateF();
-  handleFileRead("/");
-}
-void handleB() {
-  setMotorStateB();
-  handleFileRead("/");
-}
-void handleL() {
-  setMotorStateL();
-  handleFileRead("/");
-}
-void handleR() {
-  setMotorStateR();
-  handleFileRead("/");
-}
-void handleS() {
-  setMotorStateS();
-  handleFileRead("/");
-}
+// void handleF() {
+//   setMotorStateF();
+//   handleFileRead("/");
+// }
+// void handleB() {
+//   setMotorStateB();
+//   handleFileRead("/");
+// }
+// void handleL() {
+//   setMotorStateL();
+//   handleFileRead("/");
+// }
+// void handleR() {
+//   setMotorStateR();
+//   handleFileRead("/");
+// }
+// void handleS() {
+//   setMotorStateS();
+//   handleFileRead("/");
+// }
 
 void home() {
   Serial.println("hm");
@@ -249,6 +253,33 @@ void handleFileUpload(){ // upload a new file to the SPIFFS
   }
 }
 
+void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t lenght) { // When a WebSocket message is received
+  switch (type) {
+    case WStype_DISCONNECTED:             // if the websocket is disconnected
+      Serial.printf("[%u] Disconnected!\n", num);
+      break;
+    case WStype_CONNECTED: {              // if a new websocket connection is established
+        IPAddress ip = webSocket.remoteIP(num);
+        Serial.printf("[%u] Connected from %d.%d.%d.%d url: %s\n", num, ip[0], ip[1], ip[2], ip[3], payload);
+      }
+      break;
+    case WStype_TEXT:                     // if new text data is received
+      Serial.printf("[%u] get Text: %s\n", num, payload);
+      if (payload[0] == 'F') {
+        STATE = MOTORS_F;
+      } else if (payload[0] == 'S') {
+        STATE = MOTORS_S;
+      } else if (payload[0] == 'B') {
+        STATE = MOTORS_B;
+      } else if (payload[0] == 'L') {
+        STATE = MOTORS_TL;
+      } else if (payload[0] == 'R') {
+        STATE = MOTORS_TR;
+      }
+      break;
+  }
+}
+
 /*
   _____   _   _   _____   _______ 
  |_   _| | \ | | |_   _| |__   __|
@@ -280,13 +311,19 @@ void initSPIFFS() {
   Serial.println("SPIFFS strt");
 }
 
+void initWebSocket() {
+  webSocket.begin();                          // start the websocket server
+  webSocket.onEvent(webSocketEvent);          // if there's an incomming websocket message, go to function 'webSocketEvent'
+  Serial.println("WebSocket server started.");
+}
+
 void initHTTP() {
   // server.on("/", handleRoot);
-  server.on("/F", handleF);
-  server.on("/B", handleB);
-  server.on("/L", handleL);
-  server.on("/R", handleR);
-  server.on("/S", handleS);
+  // server.on("/F", handleF);
+  // server.on("/B", handleB);
+  // server.on("/L", handleL);
+  // server.on("/R", handleR);
+  // server.on("/S", handleS);
 
   server.on("/upload", HTTP_GET, []() {
     if (!handleFileRead("/upload.html"))                // send it if it exists

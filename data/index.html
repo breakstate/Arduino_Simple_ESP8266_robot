@@ -5,34 +5,25 @@
   <meta charset="utf-8">
   <title>Upload successful!</title>
   <link href="stylesheet.css" rel="stylesheet" type="text/css">
+  <script src="websocket.js" type="text/javascript"></script>
 </head>
 
 <body>
     <div class="grid-container">
         <div class="grid-item"></div>
-        <a href="/F">
-            <div class="grid-item">Forward</div>
-        </a>
+            <div id="Forward" onclick="setInstruction(this.id)" class="grid-item">Forward</div>
 
         <div class="grid-item"></div>
 
-        <a href="/L">
-        <div class="grid-item">Left</div>
-        </a>
+        <div id="Left" onclick="setInstruction(this.id)"  class="grid-item">Left</div>
 
-        <a href="/S">
-        <div class="grid-item">Stop</div>
-        </a>
+        <div id="Stop" onclick="setInstruction(this.id)"  class="grid-item">Stop</div>
 
-        <a href="/R">
-        <div class="grid-item">Right</div>
-        </a>
+        <div id="Right" onclick="setInstruction(this.id)"  class="grid-item">Right</div>
 
         <div class="grid-item"></div>
 
-        <a href="/B">
-        <div class="grid-item">Backward</div>
-        </a>
+        <div id="Backward" onclick="setInstruction(this.id)"  class="grid-item">Backward</div>
 
         <div class="grid-item"></div>
     </div>
