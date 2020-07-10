@@ -9,6 +9,12 @@
 </head>
 
 <body>
+
+    <img class="video" name="video" id="video" boarder="0" width="640" height="480" src="http://192.168.1.13:8080/video">
+    <br>
+    <button id="btnLAN" type="button" onclick="changeCamSource(this.id)">LAN cam</button>
+    <button id="btnWAN" type="button" onclick="changeCamSource(this.id)">WAN cam</button>
+
     <div class="grid-container">
         <div class="grid-item"></div>
             <div id="Forward" onclick="setInstruction(this.id)" class="grid-item">Forward</div>

@@ -35,3 +35,14 @@ function setInstruction(id) {
     }
     connection.send(instruction);
 }
+
+function changeCamSource(id) {
+  var camSource;
+  if (id == "btnWAN") {
+    camSource = "http://102.65.87.193:8080/video"
+  } else {
+    camSource = "http://192.168.1.13:8080/video"
+  }
+  var video = document.getElementById("video");
+  video.src = camSource;
+}
