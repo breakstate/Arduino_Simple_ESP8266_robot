@@ -24,7 +24,7 @@ const int IN4 = D7; // red
 const int ENA = D3; // yellow
 const int IN1 = D2; // green
 const int IN2 = D1; // blue
-const unsigned short PWMSpeed = 600; // of possible max 1023 due to 10bit PWM on wemos d1 mini
+const unsigned short PWMSpeed = 500; // of possible max 1023 due to 10bit PWM on wemos d1 mini
 
 // Motor states
 const uint8_t MOTORS_F = 0; // driving forward 
@@ -35,8 +35,8 @@ const uint8_t MOTORS_S = 4; // stopped
 uint8_t STATE = MOTORS_S; // current state (initalized to MOTOS_S for STOP)
 
 // Intervals
-const uint16_t driveIntervalTime = 3000; // default drive time
-const uint16_t turnIntervalTime = 225;   // default turn time
+const uint16_t driveIntervalTime = 2500; // default drive time
+const uint16_t turnIntervalTime = 150;   // default turn time
 
 // Setting up the http servers
 WebSocketsServer webSocket(82);
@@ -77,9 +77,9 @@ void loop() {
   server.handleClient();
   motorManager();
 
-  // if (WiFi.status() != WL_CONNECTED) {
-  //   mStop();
-  // }
+  if (WiFi.status() != WL_CONNECTED) {
+    mStop();
+  }
 }
 
 void motorManager() {
@@ -120,38 +120,33 @@ void motorManager() {
 
 void mForward() {
   Serial.println("mF");
-  notReset();
-  motors.forwardFor(3000, mStop);// forwardFor(3000);
+  // notReset();
+  motors.forward();// forwardFor(3000);
 }
 
 void mBackward() {
   Serial.println("mB");
   notReset();
-  motors.backwardFor(1000, mStop);
+  motors.backward();
 }
 
 void mStop() {
   Serial.println("mS");
   motors.stop();
-  // motors.forwardFor(0);
-  motors.reset();
-  motors.setSpeed(PWMSpeed);
   isStopped = true;
   STATE = MOTORS_S;
 }
 
 void mLeft() {
   Serial.println("mL");
-  notReset();
-  motors.forwardForB(turnIntervalTime);
-  motors.backwardForA(turnIntervalTime, mStop);
+  motors.forwardB();
+  motors.backwardA();
 }
 
 void mRight() {
   Serial.println("mR");
-  notReset();
-  motors.backwardForB(turnIntervalTime);
-  motors.forwardForA(turnIntervalTime, mStop);
+  motors.forwardA();
+  motors.backwardB();
 }
 
 void notReset() {
@@ -254,9 +249,12 @@ void handleFileUpload(){ // upload a new file to the SPIFFS
 }
 
 void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t lenght) { // When a WebSocket message is received
+    digitalWrite(LED_BUILTIN, LOW);
+
   switch (type) {
     case WStype_DISCONNECTED:             // if the websocket is disconnected
       Serial.printf("[%u] Disconnected!\n", num);
+      mStop();
       break;
     case WStype_CONNECTED: {              // if a new websocket connection is established
         IPAddress ip = webSocket.remoteIP(num);
@@ -278,6 +276,8 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t lenght
       }
       break;
   }
+    digitalWrite(LED_BUILTIN, HIGH);
+
 }
 
 /*
