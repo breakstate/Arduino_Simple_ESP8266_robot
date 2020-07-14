@@ -28,6 +28,38 @@ break;
 } 
 }); 
 
+document.addEventListener('keyup', function(event) 
+{ 
+const key = event.key; 
+switch (key) { 
+  case "ArrowLeft": 
+  document.getElementById("keyOutput").innerHTML = 'Left up'; 
+  console.log("left up");
+  setInstruction("Stop");
+  break; 
+  case "ArrowRight": 
+  document.getElementById("keyOutput").innerHTML =  'Right up';
+  setInstruction("Stop");
+  break; 
+  case "ArrowUp": 
+  document.getElementById("keyOutput").innerHTML =  'Up up'; 
+  setInstruction("Stop");
+  break; 
+  case "ArrowDown": 
+  document.getElementById("keyOutput").innerHTML =  'Down up'; 
+  setInstruction("Stop");
+  break; 
+  case " ": 
+  document.getElementById("keyOutput").innerHTML =  'Space'; 
+  setInstruction("Stop");
+  break; 
+  }
+  setInstruction("Stop");
+  setInstruction("Stop");
+  setInstruction("Stop");
+
+}); 
+
 function changeCamSource(id) {
   var camSource;
   if (id == "btnWAN") {

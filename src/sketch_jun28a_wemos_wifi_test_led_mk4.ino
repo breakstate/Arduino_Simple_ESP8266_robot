@@ -24,7 +24,7 @@ const int IN4 = D7; // red
 const int ENA = D3; // yellow
 const int IN1 = D2; // green
 const int IN2 = D1; // blue
-const unsigned short PWMSpeed = 500; // of possible max 1023 due to 10bit PWM on wemos d1 mini
+const unsigned short PWMSpeed = 800; // of possible max 1023 due to 10bit PWM on wemos d1 mini
 
 // Motor states
 const uint8_t MOTORS_F = 0; // driving forward 
@@ -37,6 +37,7 @@ uint8_t STATE = MOTORS_S; // current state (initalized to MOTOS_S for STOP)
 // Intervals
 const uint16_t driveIntervalTime = 2500; // default drive time
 const uint16_t turnIntervalTime = 150;   // default turn time
+const uint16_t EMERGENCY_STOP_INTERVAL = 500;
 
 // Setting up the http servers
 WebSocketsServer webSocket(82);
@@ -53,6 +54,7 @@ bool ledState = LOW;
 bool isStopped = true;
 unsigned long previousMillis = 0;
 unsigned long currentMillis = 0;
+unsigned long lastCommandTime = 0;
 
 // void setup is where we initialize variables, pin modes, start using libraries, etc. 
 //The setup function will only run once, after each powerup or reset of the wemos board.
@@ -72,6 +74,7 @@ void loop() {
   StepDebug();
   currentMillis = millis();
 
+  emergencyStopManager();
   webSocket.loop();
   ArduinoOTA.handle();
   server.handleClient();
@@ -116,7 +119,11 @@ void motorManager() {
 
 
 
-
+void emergencyStopManager() {
+  if ( !isStopped && (millis() - lastCommandTime > EMERGENCY_STOP_INTERVAL)) {
+    mStop();
+  }
+}
 
 void mForward() {
   Serial.println("mF");
@@ -152,37 +159,6 @@ void mRight() {
 void notReset() {
   isStopped = false;
 }
-
-// void setMotorStateF() {STATE = MOTORS_F; };
-// void setMotorStateB() {STATE = MOTORS_B; };
-// void setMotorStateL() {STATE = MOTORS_TL; };
-// void setMotorStateR() {STATE = MOTORS_TR; };
-// void setMotorStateS() {STATE = MOTORS_S; };
-
-// void handleRoot() {
-//   home();
-// }
-
-// void handleF() {
-//   setMotorStateF();
-//   handleFileRead("/");
-// }
-// void handleB() {
-//   setMotorStateB();
-//   handleFileRead("/");
-// }
-// void handleL() {
-//   setMotorStateL();
-//   handleFileRead("/");
-// }
-// void handleR() {
-//   setMotorStateR();
-//   handleFileRead("/");
-// }
-// void handleS() {
-//   setMotorStateS();
-//   handleFileRead("/");
-// }
 
 void home() {
   Serial.println("hm");
@@ -249,7 +225,8 @@ void handleFileUpload(){ // upload a new file to the SPIFFS
 }
 
 void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t lenght) { // When a WebSocket message is received
-    digitalWrite(LED_BUILTIN, LOW);
+  digitalWrite(LED_BUILTIN, LOW);
+  lastCommandTime = millis();
 
   switch (type) {
     case WStype_DISCONNECTED:             // if the websocket is disconnected
@@ -276,8 +253,7 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t lenght
       }
       break;
   }
-    digitalWrite(LED_BUILTIN, HIGH);
-
+  digitalWrite(LED_BUILTIN, HIGH);
 }
 
 /*
@@ -318,13 +294,6 @@ void initWebSocket() {
 }
 
 void initHTTP() {
-  // server.on("/", handleRoot);
-  // server.on("/F", handleF);
-  // server.on("/B", handleB);
-  // server.on("/L", handleL);
-  // server.on("/R", handleR);
-  // server.on("/S", handleS);
-
   server.on("/upload", HTTP_GET, []() {
     if (!handleFileRead("/upload.html"))                // send it if it exists
       server.send(404, "text/plain", "404: Not Found"); // otherwise, respond with a 404 (Not Found) error
