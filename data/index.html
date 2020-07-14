@@ -5,37 +5,36 @@
   <meta charset="utf-8">
   <title>Upload successful!</title>
   <link href="stylesheet.css" rel="stylesheet" type="text/css">
+  <script src="websocket.js" type="text/javascript"></script>
 </head>
 
 <body>
-    <div class="grid-container">
+
+    <img class="video" name="video" id="video" boarder="0" width="640" height="480" src="http://192.168.1.13:8080/video">
+    <br>
+    <button id="btnLAN" type="button" onclick="changeCamSource(this.id)">LAN cam</button>
+    <button id="btnWAN" type="button" onclick="changeCamSource(this.id)">WAN cam</button>
+
+    <div class="grid-container" width="640">
         <div class="grid-item"></div>
-        <a href="/F">
-            <div class="grid-item">Forward</div>
-        </a>
-
-        <div class="grid-item"></div>
-
-        <a href="/L">
-        <div class="grid-item">Left</div>
-        </a>
-
-        <a href="/S">
-        <div class="grid-item">Stop</div>
-        </a>
-
-        <a href="/R">
-        <div class="grid-item">Right</div>
-        </a>
+            <div id="Forward" onclick="setInstruction(this.id)" class="grid-item">Forward</div>
 
         <div class="grid-item"></div>
 
-        <a href="/B">
-        <div class="grid-item">Backward</div>
-        </a>
+        <div id="Left" onclick="setInstruction(this.id)"  class="grid-item">Left</div>
+
+        <div id="Stop" onclick="setInstruction(this.id)"  class="grid-item">Stop</div>
+
+        <div id="Right" onclick="setInstruction(this.id)"  class="grid-item">Right</div>
+
+        <div class="grid-item"></div>
+
+        <div id="Backward" onclick="setInstruction(this.id)"  class="grid-item">Backward</div>
 
         <div class="grid-item"></div>
     </div>
     <a href="/upload">Upload a file (don't, though)</a>
+    <br>
+    <p id="keyOutput">Key output</p>
 </body>
 </html>

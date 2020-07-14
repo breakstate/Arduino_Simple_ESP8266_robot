@@ -3,6 +3,7 @@
 #include <ArduinoOTA.h>
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
+#include <WebSocketsServer.h>
 #include <FS.h>
 #include <L298NX2.h>
 #include <secrets.h> // separate header containing my own WiFi credentials.
@@ -23,7 +24,7 @@ const int IN4 = D7; // red
 const int ENA = D3; // yellow
 const int IN1 = D2; // green
 const int IN2 = D1; // blue
-const unsigned short PWMSpeed = 600; // of possible max 1023 due to 10bit PWM on wemos d1 mini
+const unsigned short PWMSpeed = 800; // of possible max 1023 due to 10bit PWM on wemos d1 mini
 
 // Motor states
 const uint8_t MOTORS_F = 0; // driving forward 
@@ -34,10 +35,12 @@ const uint8_t MOTORS_S = 4; // stopped
 uint8_t STATE = MOTORS_S; // current state (initalized to MOTOS_S for STOP)
 
 // Intervals
-const uint16_t driveIntervalTime = 3000; // default drive time
-const uint16_t turnIntervalTime = 225;   // default turn time
+const uint16_t driveIntervalTime = 2500; // default drive time
+const uint16_t turnIntervalTime = 150;   // default turn time
+const uint16_t EMERGENCY_STOP_INTERVAL = 500;
 
 // Setting up the http servers
+WebSocketsServer webSocket(82);
 ESP8266WebServer server(81);
 IPAddress ip(192, 168, 0, 99); // desired IP address on network
 IPAddress gateway(192, 168, 1, 1); // set gateway to match network
@@ -51,6 +54,7 @@ bool ledState = LOW;
 bool isStopped = true;
 unsigned long previousMillis = 0;
 unsigned long currentMillis = 0;
+unsigned long lastCommandTime = 0;
 
 // void setup is where we initialize variables, pin modes, start using libraries, etc. 
 //The setup function will only run once, after each powerup or reset of the wemos board.
@@ -59,6 +63,7 @@ void setup() {
   initLED();
   initMotors();
   initSPIFFS();
+  initWebSocket();
   initHTTP();
   initWifi();
   initOTA();
@@ -69,13 +74,15 @@ void loop() {
   StepDebug();
   currentMillis = millis();
 
+  emergencyStopManager();
+  webSocket.loop();
   ArduinoOTA.handle();
   server.handleClient();
   motorManager();
 
-  // if (WiFi.status() != WL_CONNECTED) {
-  //   mStop();
-  // }
+  if (WiFi.status() != WL_CONNECTED) {
+    mStop();
+  }
 }
 
 void motorManager() {
@@ -112,77 +119,45 @@ void motorManager() {
 
 
 
-
+void emergencyStopManager() {
+  if ( !isStopped && (millis() - lastCommandTime > EMERGENCY_STOP_INTERVAL)) {
+    mStop();
+  }
+}
 
 void mForward() {
   Serial.println("mF");
-  notReset();
-  motors.forwardFor(3000, mStop);// forwardFor(3000);
+  // notReset();
+  motors.forward();// forwardFor(3000);
 }
 
 void mBackward() {
   Serial.println("mB");
   notReset();
-  motors.backwardFor(1000, mStop);
+  motors.backward();
 }
 
 void mStop() {
   Serial.println("mS");
   motors.stop();
-  // motors.forwardFor(0);
-  motors.reset();
-  motors.setSpeed(PWMSpeed);
   isStopped = true;
   STATE = MOTORS_S;
 }
 
 void mLeft() {
   Serial.println("mL");
-  notReset();
-  motors.forwardForB(turnIntervalTime);
-  motors.backwardForA(turnIntervalTime, mStop);
+  motors.forwardB();
+  motors.backwardA();
 }
 
 void mRight() {
   Serial.println("mR");
-  notReset();
-  motors.backwardForB(turnIntervalTime);
-  motors.forwardForA(turnIntervalTime, mStop);
+  motors.forwardA();
+  motors.backwardB();
 }
 
 void notReset() {
   isStopped = false;
-}
-
-void setMotorStateF() {STATE = MOTORS_F; };
-void setMotorStateB() {STATE = MOTORS_B; };
-void setMotorStateL() {STATE = MOTORS_TL; };
-void setMotorStateR() {STATE = MOTORS_TR; };
-void setMotorStateS() {STATE = MOTORS_S; };
-
-// void handleRoot() {
-//   home();
-// }
-
-void handleF() {
-  setMotorStateF();
-  handleFileRead("/");
-}
-void handleB() {
-  setMotorStateB();
-  handleFileRead("/");
-}
-void handleL() {
-  setMotorStateL();
-  handleFileRead("/");
-}
-void handleR() {
-  setMotorStateR();
-  handleFileRead("/");
-}
-void handleS() {
-  setMotorStateS();
-  handleFileRead("/");
 }
 
 void home() {
@@ -249,6 +224,38 @@ void handleFileUpload(){ // upload a new file to the SPIFFS
   }
 }
 
+void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t lenght) { // When a WebSocket message is received
+  digitalWrite(LED_BUILTIN, LOW);
+  lastCommandTime = millis();
+
+  switch (type) {
+    case WStype_DISCONNECTED:             // if the websocket is disconnected
+      Serial.printf("[%u] Disconnected!\n", num);
+      mStop();
+      break;
+    case WStype_CONNECTED: {              // if a new websocket connection is established
+        IPAddress ip = webSocket.remoteIP(num);
+        Serial.printf("[%u] Connected from %d.%d.%d.%d url: %s\n", num, ip[0], ip[1], ip[2], ip[3], payload);
+      }
+      break;
+    case WStype_TEXT:                     // if new text data is received
+      Serial.printf("[%u] get Text: %s\n", num, payload);
+      if (payload[0] == 'F') {
+        STATE = MOTORS_F;
+      } else if (payload[0] == 'S') {
+        STATE = MOTORS_S;
+      } else if (payload[0] == 'B') {
+        STATE = MOTORS_B;
+      } else if (payload[0] == 'L') {
+        STATE = MOTORS_TL;
+      } else if (payload[0] == 'R') {
+        STATE = MOTORS_TR;
+      }
+      break;
+  }
+  digitalWrite(LED_BUILTIN, HIGH);
+}
+
 /*
   _____   _   _   _____   _______ 
  |_   _| | \ | | |_   _| |__   __|
@@ -280,14 +287,13 @@ void initSPIFFS() {
   Serial.println("SPIFFS strt");
 }
 
-void initHTTP() {
-  // server.on("/", handleRoot);
-  server.on("/F", handleF);
-  server.on("/B", handleB);
-  server.on("/L", handleL);
-  server.on("/R", handleR);
-  server.on("/S", handleS);
+void initWebSocket() {
+  webSocket.begin();                          // start the websocket server
+  webSocket.onEvent(webSocketEvent);          // if there's an incomming websocket message, go to function 'webSocketEvent'
+  Serial.println("WebSocket server started.");
+}
 
+void initHTTP() {
   server.on("/upload", HTTP_GET, []() {
     if (!handleFileRead("/upload.html"))                // send it if it exists
       server.send(404, "text/plain", "404: Not Found"); // otherwise, respond with a 404 (Not Found) error

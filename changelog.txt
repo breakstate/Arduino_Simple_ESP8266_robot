@@ -1,5 +1,10 @@
 UPDATE HISTORY
 
+--- 2020/07/10 ---
+SW: added SPLIFF file server functionality for updating and uploading files remotely
+    changed from HTTP to WebSocket communication for the drive instructions 
+    note: although latency improved, some clicks still go unregistered, indicating drive logic issues.
+
 --- 2020/07/08 ---
 HW: changed gnd and 5v connections between wemos and motor-controller from m/m jumpers to short dupont f/m cables
 SW: added OTA update functionality 
